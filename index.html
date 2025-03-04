@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chess Pro</title>
+    <link rel="stylesheet" href="./chessboard.css">
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --bg-color: #f0f0f0;
+            --board-color: #fff;
+            --text-color: #333;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: var(--bg-color);
+            font-family: 'Arial', sans-serif;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        body.dark-theme {
+            --bg-color: #2c3e50;
+            --board-color: #34495e;
+            --text-color: #fff;
+        }
+
+        #game-container {
+            padding: 20px;
+            background: var(--board-color);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            position: relative;
+            display: none;
+        }
+
+        #menu-container, #difficulty-menu, #settings-menu {
+            padding: 20px;
+            background: var(--board-color);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            position: relative;
+            text-align: center;
+        }
+
+        #difficulty-menu {
+            display: none;
+        }
+
+        #settings-menu {
+            display: none;
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 100vh;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            box-sizing: border-box;
+            border-radius: 15px 0 0 15px;
+            text-align: left;
+        }
+
+        body.dark-theme #settings-menu {
+            background: rgba(52, 73, 94, 0.95); /* Тёмный фон для настроек в тёмной теме */
+        }
+
+        #menu-title {
+            font-size: 1.5em; /* Уменьшенный размер шрифта */
+            color: var(--text-color);
+            position: absolute;
+            top: 20px;
+            left: 20px; /* Сдвинут левее */
+            margin: 0;
+            font-weight: bold;
+            z-index: 5;
+        }
+
+        #settings-title {
+            font-size: 1.5em;
+            color: var(--text-color);
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        #status {
+            margin-bottom: 20px;
+            font-size: 1.4em;
+            color: var(--text-color);
+            text-align: center;
+            font-weight: bold;
+        }
+
+        #board, #menu-board {
+            width: 560px;
+            height: 560px;
+            transition: transform 0.3s;
+        }
+
+        .controls, .menu-controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .menu-controls {
+            margin-bottom: 60px;
+        }
+
+        .difficulty-controls {
+            margin-top: 20px;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .settings-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .slider-container {
+            margin: 20px 0;
+        }
+
+        input[type="range"] {
+            width: 300px;
+            margin: 10px 0;
+        }
+
+        #difficulty-description {
+            font-size: 1.2em;
+            color: var(--text-color);
+            margin-top: 10px;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .settings-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 100px;
+            height: 40px;
+            background: var(--primary-color);
+            border-radius: 25px;
+            border: none;
+            cursor: pointer;
+            color: white;
+            font-size: 14px;
+        }
+
+        .move-history {
+            position: absolute;
+            left: -200px;
+            top: 0;
+            width: 180px;
+            height: 560px;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            color: var(--text-color);
+        }
+
+        body.dark-theme .move-history {
+            background: #34495e;
+        }
+
+        .timer {
+            font-size: 24px;
+            text-align: center;
+            margin: 10px 0;
+            color: var(--text-color);
+        }
+
+        .check-highlight {
+            background: rgba(255,0,0,0.5) !important;
+        }
+
+        .move-dot {
+            position: relative;
+        }
+
+        .move-dot::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-button" onclick="toggleSettingsMenu()">Настройки</div>
+    <div id="menu-title">Mawgly Chess</div>
+
+    <!-- Начальное меню -->
+    <div id="menu-container">
+        <div class="menu-controls">
+            <button onclick="startTwoPlayerGame()">Играть вдвоем</button>
+            <button onclick="showDifficultyMenu()">Играть с ИИ</button>
+        </div>
+        <div id="menu-board"></div>
+    </div>
+
+    <!-- Меню выбора сложности -->
+    <div id="difficulty-menu">
+        <div id="difficulty-title">Выберите уровень ИИ</div>
+        <div class="difficulty-controls">
+            <div class="slider-container">
+                <input type="range" min="1" max="20" value="10" id="difficulty-slider" oninput="updateDifficultyDescription()">
+                <div id="difficulty-description"></div>
+            </div>
+            <button onclick="startAIGame()">Начать игру</button>
+        </div>
+        <div id="menu-board"></div>
+    </div>
+
+    <!-- Меню настроек -->
+    <div id="settings-menu">
+        <div id="settings-title">Настройки</div>
+        <div class="settings-controls">
+            <button onclick="toggleTheme()">🌓 Сменить тему</button>
+            <button id="toggle-moves" onclick="toggleMoveHighlight()">Подсветка ходов: Выкл</button>
+            <button onclick="toggleSettingsMenu()">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- Игровой контейнер -->
+    <div id="game-container">
+        <div id="status">Ход белых</div>
+        <div class="timer" id="black-timer">Черные: 10:00</div>
+        <div id="board"></div>
+        <div class="timer" id="white-timer">Белые: 10:00</div>
+        
+        <div class="controls">
+            <button onclick="undoMove()">↩️ Отменить ход</button>
+            <button onclick="newGame()">🔄 Новая игра</button>
+            <button onclick="backToMenu()">🏠 В меню</button>
+        </div>
+    </div>
+
+    <div class="move-history" id="move-history">
+        <h3>История ходов:</h3>
+    </div>
+
+    <!-- Локальные файлы -->
+    <script src="./jquery-3.6.0.min.js"></script>
+    <script src="./chess.js"></script>
+    <script src="./chessboard.js"></script>
+
+    <script>
+        let stockfish = new Worker('./stockfish.js');
+        stockfish.onmessage = function(event) {
+            let message = event.data;
+            if (message.startsWith('bestmove')) {
+                let bestMove = message.split(' ')[1];
+                makeAIMove(bestMove);
+            } else {
+                console.log('Stockfish message:', message);
+            }
+        };
+
+        const config = {
+            draggable: true,
+            position: 'start',
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+            onDragStart: onDragStart,
+            onDrop: onDrop,
+            onSnapEnd: onSnapEnd,
+            showNotation: true,
+            animationDuration: 300,
+            hoverEffects: true
+        };
+
+        const menuConfig = {
+            position: 'start',
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+            showNotation: true
+        };
+
+        let game = new Chess();
+        let board = Chessboard('board', config);
+        let menuBoard = Chessboard('menu-board', menuConfig);
+        let whiteTime = 600;
+        let blackTime = 600;
+        let timerInterval;
+        let isDarkTheme = false;
+        let moveHistory = [];
+        let isTwoPlayerMode = false;
+        let hasBlackMoved = false;
+        let aiSkillLevel = 10;
+        let aiDepth = 10;
+        let showMoveHighlights = false;
+
+        // Отключение правой кнопки мыши
+        document.addEventListener('contextmenu', function(event) {
+            if (event.target.closest('#game-container') || event.target.closest('#board')) {
+                event.preventDefault();
+            }
+        });
+
+        function updateStatus() {
+            const statusElement = document.getElementById('status');
+            let statusText = `Ход ${game.turn() === 'w' ? 'белых' : 'черных'}`;
+
+            if (game.in_checkmate()) {
+                statusText = `🎉 Мат! ${game.turn() === 'w' ? 'Черные' : 'Белые'} победили!`;
+                stopTimers();
+            } else if (game.in_draw()) {
+                statusText = "🤝 Ничья!";
+                stopTimers();
+            } else if (game.in_check()) {
+                statusText += " ⚔️ Шах!";
+            } else if (isTwoPlayerMode) {
+                if (whiteTime <= 0) {
+                    statusText = "⏳ Время белых вышло! Черные победили!";
+                    stopTimers();
+                } else if (blackTime <= 0) {
+                    statusText = "⏳ Время черных вышло! Белые победили!";
+                    stopTimers();
+                }
+            }
+
+            statusElement.innerHTML = statusText;
+            highlightKing();
+            if (game.game_over()) {
+                stockfish.postMessage('stop');
+            }
+        }
+
+        function onDragStart(source, piece) {
+            if (game.game_over() || (isTwoPlayerMode && (whiteTime <= 0 || blackTime <= 0))) return false;
+            highlightMoves(source);
+            if (isTwoPlayerMode) return true;
+            return piece[0] === 'w' && game.turn() === 'w';
+        }
+
+        function onDrop(source, target) {
+            const move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q'
+            });
+
+            if (move === null) return 'snapback';
+
+            if (isTwoPlayerMode && game.turn() === 'w' && !hasBlackMoved) {
+                hasBlackMoved = true;
+            }
+
+            // Убираем подсветку после хода
+            $('.square-55d63').removeClass('move-dot');
+
+            updateStatus();
+            if (isTwoPlayerMode) updateTimersDisplay();
+            updateMoveHistory(move);
+            
+            if (isTwoPlayerMode) {
+                startTimers();
+            }
+
+            if (!isTwoPlayerMode && game.turn() === 'b') {
+                stockfish.postMessage('setoption name Skill Level value ' + aiSkillLevel);
+                stockfish.postMessage('position fen ' + game.fen());
+                stockfish.postMessage('go depth ' + aiDepth);
+            }
+
+            return true;
+        }
+
+        function onSnapEnd() {
+            board.position(game.fen());
+        }
+
+        function makeAIMove(move) {
+            game.move({
+                from: move.substring(0, 2),
+                to: move.substring(2, 4),
+                promotion: move.length > 4 ? move[4] : undefined
+            });
+            board.position(game.fen());
+            updateStatus();
+            updateMoveHistory(game.history({ verbose: true }).pop());
+        }
+
+        function findKingPosition(color) {
+            const boardState = game.board();
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) {
+                    const piece = boardState[i][j];
+                    if (piece && piece.type === 'k' && piece.color === color) {
+                        return String.fromCharCode(97 + j) + (8 - i);
+                    }
+                }
+            }
+            return null;
+        }
+
+        function highlightKing() {
+            $('.square-55d63').removeClass('check-highlight');
+            const color = game.turn();
+            const kingSquare = findKingPosition(color);
+
+            if (kingSquare) {
+                const $square = $(`#board .square-${kingSquare}`);
+                if (game.in_check() || game.in_checkmate()) {
+                    $square.addClass('check-highlight');
+                }
+            }
+        }
+
+        function highlightMoves(source) {
+            $('.square-55d63').removeClass('move-dot');
+            if (showMoveHighlights) {
+                const moves = game.moves({square: source, verbose: true});
+                moves.forEach(move => $(`#board .square-${move.to}`).addClass('move-dot'));
+            }
+        }
+
+        function toggleTheme() {
+            isDarkTheme = !isDarkTheme;
+            if (isDarkTheme) {
+                document.body.classList.add('dark-theme');
+            } else {
+                document.body.classList.remove('dark-theme');
+            }
+        }
+
+        function toggleSettingsMenu() {
+            const settingsMenu = $('#settings-menu');
+            if (settingsMenu.is(':visible')) {
+                settingsMenu.hide();
+            } else {
+                settingsMenu.show();
+            }
+        }
+
+        function toggleMoveHighlight() {
+            showMoveHighlights = !showMoveHighlights;
+            $('#toggle-moves').text(`Подсветка ходов: ${showMoveHighlights ? 'Вкл' : 'Выкл'}`);
+        }
+
+        function updateMoveHistory(move) {
+            const historyDiv = $('#move-history');
+            const moveNumber = Math.ceil(game.history().length / 2);
+            const isWhite = game.history().length % 2 === 1;
+            
+            if (isWhite) {
+                historyDiv.append(`<div>${moveNumber}. ${move.san}`);
+            } else {
+                const last = historyDiv.children().last();
+                last.text(last.text() + ` ${move.san}`);
+            }
+            historyDiv.scrollTop(historyDiv[0].scrollHeight);
+        }
+
+        function startTimers() {
+            if (!isTwoPlayerMode) return;
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (game.turn() === 'b') {
+                    blackTime--;
+                }
+                if (game.turn() === 'w' && hasBlackMoved) {
+                    whiteTime--;
+                }
+                
+                if (whiteTime <= 0 || blackTime <= 0) {
+                    stopTimers();
+                    updateStatus();
+                    return;
+                }
+                
+                updateTimersDisplay();
+            }, 1000);
+        }
+
+        function updateTimersDisplay() {
+            $('#white-timer').text(`Белые: ${formatTime(whiteTime)}`);
+            $('#black-timer').text(`Черные: ${formatTime(blackTime)}`);
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function stopTimers() {
+            clearInterval(timerInterval);
+        }
+
+        function startTwoPlayerGame() {
+            isTwoPlayerMode = true;
+            $('#menu-container').hide();
+            $('#difficulty-menu').hide();
+            $('#game-container').show();
+            $('#black-timer').show();
+            $('#white-timer').show();
+            newGame();
+        }
+
+        function showDifficultyMenu() {
+            $('#menu-container').hide();
+            $('#game-container').hide();
+            $('#difficulty-menu').show();
+            updateDifficultyDescription();
+        }
+
+        function startAIGame() {
+            isTwoPlayerMode = false;
+            const level = parseInt($('#difficulty-slider').val());
+            aiSkillLevel = Math.round((level - 1) * 20 / 19);
+            aiDepth = level;
+            $('#difficulty-menu').hide();
+            $('#game-container').show();
+            $('#white-timer').hide();
+            $('#black-timer').hide();
+            newGame();
+            stockfish.postMessage('setoption name Skill Level value ' + aiSkillLevel);
+        }
+
+        function backToMenu() {
+            stopTimers();
+            $('#game-container').hide();
+            $('#difficulty-menu').hide();
+            $('#settings-menu').hide();
+            $('#menu-container').show();
+            $('#move-history').empty();
+            game.reset();
+            board.start();
+        }
+
+        function undoMove() {
+            game.undo();
+            board.position(game.fen());
+            updateStatus();
+            if (isTwoPlayerMode) updateTimersDisplay();
+        }
+
+        function newGame() {
+            game.reset();
+            board.start();
+            whiteTime = blackTime = 600;
+            hasBlackMoved = false;
+            updateStatus();
+            if (isTwoPlayerMode) updateTimersDisplay();
+            $('#move-history').empty();
+            stopTimers();
+            if (isTwoPlayerMode) startTimers();
+            stockfish.postMessage('ucinewgame');
+            stockfish.postMessage('position startpos');
+        }
+
+        function updateDifficultyDescription() {
+            const level = parseInt($('#difficulty-slider').val());
+            let description = '';
+
+            switch(level) {
+                case 1:
+                    description = "Уровень 1: Новичок. ИИ делает случайные ходы, смотрит только на 1 ход вперед. Очень легко победить.";
+                    break;
+                case 2: case 3: case 4:
+                    description = `Уровень ${level}: Любитель. ИИ играет слабо, часто ошибается, смотрит на ${level} хода вперед. Подходит для начинающих.`;
+                    break;
+                case 5: case 6: case 7:
+                    description = `Уровень ${level}: Уверенный любитель. ИИ начинает играть осмысленно, смотрит на ${level} ходов вперед. Легкий вызов для новичков.`;
+                    break;
+                case 8: case 9: case 10:
+                    description = `Уровень ${level}: Средний игрок. ИИ играет на уровне среднего любителя, смотрит на ${level} ходов вперед. Хорошая тренировка.`;
+                    break;
+                case 11: case 12: case 13:
+                    description = `Уровень ${level}: Продвинутый любитель. ИИ играет уверенно, смотрит на ${level} ходов вперед. Подходит для опытных игроков.`;
+                    break;
+                case 14: case 15: case 16:
+                    description = `Уровень ${level}: Клубный игрок. ИИ играет на уровне сильного любителя, смотрит на ${level} ходов вперед. Серьезный вызов.`;
+                    break;
+                case 17: case 18: case 19:
+                    description = `Уровень ${level}: Эксперт. ИИ играет очень сильно, смотрит на ${level} ходов вперед. Требует мастерства для победы.`;
+                    break;
+                case 20:
+                    description = "Уровень 20: Мастер. ИИ играет на максимальной силе, смотрит на 20 ходов вперед. Почти невозможно победить без мастерства.";
+                    break;
+            }
+
+            $('#difficulty-description').text(description);
+        }
+
+        // Инициализация
+        $('#menu-container').show();
+        updateStatus();
+    </script>
+</body>
+</html>
